@@ -7,7 +7,7 @@ import threading
 from PyInquirer import prompt
 
 __AUTHOR__ = "Taira"
-__VERSION__ = "4: Electric Boogerdoor"
+__VERSION__ = "5: Electric Boogerhive"
 
 LOGO = f"""
          .'cdk0XWWWXKOdl:'.
@@ -81,11 +81,11 @@ class Spinner:
 
     def spinner_task(self):
         while self.busy:
-            next_msg = f"[{next(self.spinner_generator)}] {self.msg}"
-            sys.stdout.write(next_msg)
+            self.next_msg = f"[{next(self.spinner_generator)}] {self.msg}"
+            sys.stdout.write(self.next_msg)
             sys.stdout.flush()
             time.sleep(self.delay)
-            sys.stdout.write('\b' * len(next_msg))
+            sys.stdout.write('\b' * len(self.next_msg))
             sys.stdout.flush()
 
     def __enter__(self):
@@ -97,7 +97,10 @@ class Spinner:
         time.sleep(self.delay)
         if exception is not None:
             return False
-        print("\n")
+        sys.stdout.write('\b' * len(self.next_msg))
+        sys.stdout.write(' ' * len(self.next_msg))
+        sys.stdout.write('\b' * len(self.next_msg))
+        sys.stdout.flush()
 
 
 class Session:
@@ -121,6 +124,7 @@ class Session:
                 self.roms.append(file)
 
     def extract(self):
+        """Perform ROM extraction."""
         log("Beginning extraction...", type="-")
         path = self.original
         os.makedirs(path)
@@ -155,7 +159,7 @@ class Session:
         with Spinner(msg="Executing stage I extraction commands..."):
             for cmd in stage1_cmds:
                 cmd = subproc_format(self.rom, f"{self.bin} {cmd}")
-                out = subprocess.run(cmd, stdout=subprocess.PIPE)
+                subprocess.run(cmd, stdout=subprocess.PIPE)
 
         for part in self.partitions:
             try:
@@ -185,6 +189,7 @@ class Session:
         log("Extraction has completed successfully.", type="S")
 
     def rebuild(self):
+        """Rebuild ROM post-modification/unstaging."""
         path = self.original
         log("Beginning reconstruction process.", "-")
         with Spinner(msg="Executing stage I reconstruction commands..."):
@@ -218,7 +223,7 @@ class Session:
         with Spinner(msg="Executing stage II reconstruction commands..."):
             for cmd in stage2_cmds:
                 cmd = subproc_format(self.rom, f"{self.bin} {cmd}")
-                out = subprocess.run(cmd, stdout=subprocess.PIPE)
+                subprocess.run(cmd, stdout=subprocess.PIPE)
 
         for file in os.listdir(path):
             if file.startswith("Custom") and file.endswith(".bin"):
@@ -231,16 +236,18 @@ class Session:
             for part in self.partitions:
                 cmd += f"-{part} {path}CustomPartition{part}.bin "
             cmd = subproc_format(self.opt_rom, f"{self.bin} {cmd}")
-            out = subprocess.run(cmd[:-1], stdout=subprocess.PIPE)
+            subprocess.run(cmd[:-1], stdout=subprocess.PIPE)
         log("Stage III is complete. Final ROM has been built.", "S")
         log("Reconstruction process has completed.", "S")
 
     def obtain_rom(self):
+        """Prompt user for ROM if there is more than one."""
         if len(self.roms) == 0:
             prompt([{'type': 'list', 'name': 'darn', 'message': 'No ROMs were found. Please move one into the same folder as LunaHack. The program will now exit.', 'choices': ['Shoot.']}])
             sys.exit(0)
         elif len(self.roms) == 1:
             self.rom = self.roms[0]
+            log(f"Only one ROM detected: {self.rom}", "-")
         else:
             p = [
                 {
@@ -251,9 +258,11 @@ class Session:
                 }
             ]
             self.rom = prompt(p)['rom']
+        log(f"Moving forward with extraction of '{self.rom}'", "-")
         self.opt_rom = self.rom[:-4] + "_modded.3ds"
 
     def cleanup(self, remove_rom=False):
+        """Clean up directories."""
         if os.path.exists(self.original):
             shutil.rmtree(self.original)
         if os.path.exists(self.modded):
@@ -261,7 +270,28 @@ class Session:
         if os.path.exists(self.opt_rom) and remove_rom:
             os.remove(self.opt_rom)
 
+    def unstage(self):
+        """
+        Unstage modding directory.
+
+        Prior to ROM reconstruction, particular folders and files within the
+        modded directory need to merged and moved into the original
+        directory. This method does exactly that.
+        """
+        with Spinner(msg="Unstaging modding directory..."):
+            shutil.rmtree(os.path.join(self.original, "ExtractedRomFS"))
+            shutil.copytree(os.path.join(self.modded, "ExtractedRomFS"), os.path.join(self.original, "ExtractedRomFS"))
+
+            o = os.path.join(self.original, "ExtractedExeFS")
+            m = os.path.join(self.modded, "ExtractedExeFS")
+            os.remove(os.path.join(o, "code.bin"))
+            shutil.copyfile(os.path.join(m, ".code.bin"), os.path.join(o, "code.bin"))
+
+            shutil.rmtree(self.modded)
+        log("Unstaging completed successfully.", "S")
+
     def prompt_recompression(self):
+        """Prompt for prompt_recompression."""
         p = [
             {
                 'type': 'list',
@@ -284,8 +314,8 @@ class Session:
             sys.exit(0)
 
     def process(self):
+        """Perform the entire decompress/modify/unstage/recompress process."""
         self.obtain_rom()
-        os.system('CLS')
         self.cleanup(remove_rom=True)
         self.extract()
 
@@ -297,6 +327,7 @@ class Session:
             subprocess.run(["pk3DS.exe", self.modded])
 
         self.prompt_recompression()
+        self.unstage()
         self.rebuild()
 
         with Spinner(msg="Cleaning up..."):
@@ -310,7 +341,7 @@ class Session:
 
 if __name__ == "__main__":
     print(LOGO)
-    print("\nPress enter to continue...")
+    print("Press enter to continue...")
     input()
 
     session = Session()

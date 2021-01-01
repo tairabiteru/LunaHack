@@ -23,6 +23,7 @@ The process utilized by this program to extract, modify, and reconstruct ROMs ta
 5. The modified ROM can then be run with a normal 3DS emulator.
 
 ## Changelog
+* 5.0 - Fixed an issue which caused directories to not be merged correctly.
 * 4.0 - Rewrote literally everything to make it less...awful. Added options to handle multiple ROMs, as well as fancier console output.
 * 3.0 - Fixed an issue which caused failures when a ROM had spaces in the name. Also made it so that the cleanup process doesn't remove this README file. (lol oops)
 * 2.0 - Made the unstaging process move `modified/ExtractedExeFS/.code.bin` to `original/ExtractedExeFS/code.bin`. This fixes an issue where TMs were not properly randomized.
