@@ -4,10 +4,11 @@ import shutil
 import sys
 import time
 import threading
+import xxhash
 from PyInquirer import prompt
 
 __AUTHOR__ = "Taira"
-__VERSION__ = "5: Electric Boogerhive"
+__VERSION__ = "6: Electric Boogersticks"
 
 LOGO = f"""
          .'cdk0XWWWXKOdl:'.
@@ -60,6 +61,17 @@ def copydir(src, dst):
             shutil.copytree(s, d)
         else:
             shutil.copy2(s, d)
+
+
+def getHash(file):
+    BLOCKSIZE = 65536
+    hash = xxhash.xxh64()
+    with open(file, 'rb') as file:
+        buffer = file.read(BLOCKSIZE)
+        while len(buffer) > 0:
+            hash.update(buffer)
+            buffer = file.read(BLOCKSIZE)
+    return hash.hexdigest()
 
 
 class Spinner:
@@ -123,11 +135,18 @@ class Session:
             if file.lower().endswith(".3ds") and not file.lower().endswith("_modded.3ds"):
                 self.roms.append(file)
 
-    def extract(self):
+    def extract(self, hash=None):
         """Perform ROM extraction."""
         log("Beginning extraction...", type="-")
         path = self.original
         os.makedirs(path)
+
+        if not hash:
+            with Spinner(msg="Hashing ROM..."):
+                hash = getHash(self.rom)
+
+        file = open(os.path.join(self.original, f"{hash}.hash"), 'w')
+        file.close()
 
         stage1_cmds = []
 
@@ -190,7 +209,7 @@ class Session:
 
     def rebuild(self):
         """Rebuild ROM post-modification/unstaging."""
-        path = self.original
+        path = self.modded
         log("Beginning reconstruction process.", "-")
         with Spinner(msg="Executing stage I reconstruction commands..."):
             cmd = f"{self.bin} -ctf romfs {path}CustomRomFS.bin --romfs-dir {path}ExtractedRomFS".split(" ")
@@ -263,8 +282,6 @@ class Session:
 
     def cleanup(self, remove_rom=False):
         """Clean up directories."""
-        if os.path.exists(self.original):
-            shutil.rmtree(self.original)
         if os.path.exists(self.modded):
             shutil.rmtree(self.modded)
         if os.path.exists(self.opt_rom) and remove_rom:
@@ -279,15 +296,17 @@ class Session:
         directory. This method does exactly that.
         """
         with Spinner(msg="Unstaging modding directory..."):
-            shutil.rmtree(os.path.join(self.original, "ExtractedRomFS"))
-            shutil.copytree(os.path.join(self.modded, "ExtractedRomFS"), os.path.join(self.original, "ExtractedRomFS"))
-
-            o = os.path.join(self.original, "ExtractedExeFS")
-            m = os.path.join(self.modded, "ExtractedExeFS")
-            os.remove(os.path.join(o, "code.bin"))
-            shutil.copyfile(os.path.join(m, ".code.bin"), os.path.join(o, "code.bin"))
-
-            shutil.rmtree(self.modded)
+            # Leave alone ExtractedRomFS
+            # Rename .code.bin to code.bin
+            # Copy everything else
+            for root, dirs, files in os.walk(self.modded):
+                for file in files:
+                    if file == ".code.bin":
+                        os.rename(os.path.join(root, file), os.path.join(root, "code.bin"))
+                    elif "ExtractedRomFS" in root:
+                        pass
+                    else:
+                        shutil.copyfile(os.path.join(root.replace("modded", "original"), file), os.path.join(root, file))
         log("Unstaging completed successfully.", "S")
 
     def prompt_recompression(self):
@@ -317,7 +336,23 @@ class Session:
         """Perform the entire decompress/modify/unstage/recompress process."""
         self.obtain_rom()
         self.cleanup(remove_rom=True)
-        self.extract()
+        if os.path.exists(self.original):
+            hashfile = ''
+            for file in os.listdir(self.original):
+                if file.endswith(".hash"):
+                    hashfile = file
+            with Spinner(msg=f"Hashing '{self.rom}'..."):
+                hash = getHash(self.rom)
+            if hashfile.split(".hash")[0] == hash:
+                log("Pre-extracted ROM detected. Skipping extraction step!", type="-")
+            else:
+                log("Pre-extracted ROM detected, but has non-identical hash.", type="-")
+                shutil.rmtree(self.original)
+                self.extract(hash=hash)
+        else:
+            log("No pre-extracted ROM detected.", type="-")
+            shutil.rmtree(self.original)
+            self.extract()
 
         with Spinner(msg="Creating modding directory. This may take a while..."):
             copydir(self.original, self.modded)

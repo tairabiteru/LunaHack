@@ -23,6 +23,7 @@ The process utilized by this program to extract, modify, and reconstruct ROMs ta
 5. The modified ROM can then be run with a normal 3DS emulator.
 
 ## Changelog
+* 6.0 - LunaHack will now hash the ROM before proceeding to extraction. If it matches any ROM which has already been extracted it will skip the entire extraction step. This should allow for massive speedups in special but common situations.
 * 5.0 - Fixed an issue which caused directories to not be merged correctly.
 * 4.0 - Rewrote literally everything to make it less...awful. Added options to handle multiple ROMs, as well as fancier console output.
 * 3.0 - Fixed an issue which caused failures when a ROM had spaces in the name. Also made it so that the cleanup process doesn't remove this README file. (lol oops)
