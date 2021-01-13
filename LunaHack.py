@@ -8,7 +8,7 @@ import xxhash
 from PyInquirer import prompt
 
 __AUTHOR__ = "Taira"
-__VERSION__ = "6: Electric Boogersticks"
+__VERSION__ = "6.2: Electric Boogaloo"
 
 LOGO = f"""
          .'cdk0XWWWXKOdl:'.
@@ -351,7 +351,6 @@ class Session:
                 self.extract(hash=hash)
         else:
             log("No pre-extracted ROM detected.", type="-")
-            shutil.rmtree(self.original)
             self.extract()
 
         with Spinner(msg="Creating modding directory. This may take a while..."):
