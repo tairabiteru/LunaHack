@@ -11,7 +11,7 @@ Extract the `.zip` file to a folder of your choice.
 
 The process utilized by this program to extract, modify, and reconstruct ROMs takes a LOT of space, (Think like, 12 - 15 GB) and while the program does clean up after itself, you MUST make sure you have enough space on the disk. If you do not, the program will behave unexpectedly.
 
-## But why tho?
+## But why?
 * Because having to look up a tutorial to do the same thing over and over when you lost your Nuzlocke because the game decided to start you off with a wurmple, a bidoof and a patrat is annoying.
 
 ## Usage
